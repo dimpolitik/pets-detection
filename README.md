@@ -10,11 +10,11 @@ This project implements a comprehensive pipeline for training, validating, and p
 
 ```
 Repository root
-├── README.md                          # This file
-├── pets.yaml                          # Dataset 
-├── pets_code.py                       # Main training 
-├── pets_explainability.py             # Model explainability analysis 
-└── lrp/                               # Layer-wise Relevance Propagation
+├── README.md                          
+├── pets.yaml                          
+├── pets_code.py                      
+├── pets_explainability.py             
+└── lrp/                              
     ├── initializers.py
     ├── inverter.py
     ├── inverter_util.py
