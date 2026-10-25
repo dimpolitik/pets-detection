@@ -30,6 +30,9 @@ EXPERIMENTS = {
     "new_pets_y26_xlarge_640_16": 640,
     "new_pets_y26_xlarge_960_16": 960,
 }
+LOCAL_CHECKPOINTS = {
+    "new_pets_y26_large_960_16": ROOT / "weights" / "best.pt",
+}
 
 SPLITS = ("train", "val", "test")
 CSV_FIELDS = (
@@ -337,13 +340,19 @@ def main() -> None:
         raise FileNotFoundError("Dataset YAML not found: {}".format(DATASET))
 
     experiments = [
-        (RUNS_DIR / run_name, image_size)
+        (
+            RUNS_DIR / run_name,
+            image_size,
+            LOCAL_CHECKPOINTS.get(
+                run_name, RUNS_DIR / run_name / "weights" / "best.pt"
+            ),
+        )
         for run_name, image_size in EXPERIMENTS.items()
     ]
     missing_files = [
         path
-        for run_dir, _ in experiments
-        for path in (run_dir / "weights" / "best.pt", run_dir / "args.yaml")
+        for run_dir, _, checkpoint in experiments
+        for path in (checkpoint, run_dir / "args.yaml")
         if not path.is_file()
     ]
     if missing_files:
@@ -359,9 +368,8 @@ def main() -> None:
         writer = csv.DictWriter(csv_file, fieldnames=CSV_FIELDS)
         writer.writeheader()
 
-        for run_dir, expected_image_size in experiments:
+        for run_dir, expected_image_size, checkpoint in experiments:
             run_name = run_dir.name
-            checkpoint = run_dir / "weights" / "best.pt"
             model = YOLO(str(checkpoint))
             image_size = get_image_size(run_dir, expected_image_size)
             confidence = select_confidence(model, run_name, image_size)

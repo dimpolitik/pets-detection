@@ -7,6 +7,7 @@ Train YOLO26 models to detect sharks and skates in the PETS dataset, then evalua
 - `pets_training.py` — train and evaluate one YOLO26-L or YOLO26-X model.
 - `pets_inference.py` — evaluate configured training runs and save split metrics.
 - `pets_y26l_960_optimal_inference.py` — detailed evaluation for the YOLO26-L 960px run, including count-error plots.
+- `weights/best.pt` — checkpoint used by the focused YOLO26-L 960px evaluation.
 - `pets.yaml` — dataset paths and class names.
 - `pets_explainability.py` and `lrp/` — explainability entry point and Layer-wise Relevance Propagation helpers.
 - `sample_images/` — example PETS images.
@@ -27,7 +28,8 @@ are elsewhere.
 
 Keep the test split independent: use training and validation data to make
 model or threshold choices, and reserve test results for final evaluation. The
-dataset and trained checkpoints are not included in this repository.
+dataset and most trained checkpoints are not included in this repository.
+The focused YOLO26-L 960px checkpoint is included under `weights/`.
 
 ## Train a model
 
@@ -71,7 +73,9 @@ matches the run's `args.yaml`. It checks `../runs/detect/` first when that
 directory exists; otherwise it uses `pets-detection/runs/detect/`. The
 default experiment names in `pets_inference.py` use a `new_pets_...` prefix,
 whereas `pets_training.py` creates names beginning with `pets_y26_`; update
-`EXPERIMENTS` to match the runs you trained.
+`EXPERIMENTS` to match the runs you trained. The `new_pets_y26_large_960_16`
+run uses the local checkpoint in `weights/`; other runs still need their
+checkpoints under `runs/detect/`.
 
 From the `pets-detection` directory, run:
 
@@ -88,10 +92,10 @@ not used to select it. The script writes `pets_inference_metrics.csv`,
 
 ### Run the focused YOLO26-L 960px evaluation
 
-`pets_y26l_960_optimal_inference.py` expects the trained checkpoint at
-`runs/detect/new_pets_y26_large_960_16/weights/best.pt` and the dataset at
+`pets_y26l_960_optimal_inference.py` loads its checkpoint from
+`weights/best.pt` in this project. It expects the dataset at
 `../../datasets/pets_create_train_val_test_set` relative to this script. Make
-sure these paths exist before running:
+sure the dataset paths are configured before running:
 
 ```bash
 python pets_y26l_960_optimal_inference.py

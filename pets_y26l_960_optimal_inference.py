@@ -17,10 +17,7 @@ from pets_inference import DATASET, select_confidence
 
 ROOT = Path(__file__).resolve().parent
 RUN_NAME = "new_pets_y26_large_960_16"
-# The checkpoint is in the parent workspace; generated artifacts are local.
-WORKSPACE_ROOT = ROOT.parent if (ROOT.parent / "runs" / "detect").is_dir() else ROOT
-RUN_DIR = WORKSPACE_ROOT / "runs" / "detect" / RUN_NAME
-CHECKPOINT = RUN_DIR / "weights" / "best.pt"
+CHECKPOINT = ROOT / "weights" / "best.pt"
 IMAGE_SIZE = 960
 SPLITS = ("train", "val", "test")
 DATASET_ROOT = (
