@@ -1,133 +1,116 @@
 # PETS Detection with YOLO26
 
+Train YOLO26 models to detect sharks and skates in the PETS dataset, then evaluate detection and per-image count accuracy.
+
+## Project files
+
+- `pets_training.py` — train and evaluate one YOLO26-L or YOLO26-X model.
+- `pets_inference.py` — evaluate configured training runs and save split metrics.
+- `pets_y26l_960_optimal_inference.py` — detailed evaluation for the YOLO26-L 960px run, including count-error plots.
+- `pets.yaml` — dataset paths and class names.
+- `pets_explainability.py` and `lrp/` — explainability entry point and Layer-wise Relevance Propagation helpers.
+- `sample_images/` — example PETS images.
+- `requirements.txt` — Python dependencies.
+
 ![Example PETS dataset image](sample_images/20190813_122602.jpg)
 
 *Example image from the PETS dataset.*
 
-This project contains code and supporting files for detecting sharks and skates
-in the PETS dataset. The `pets_training.py` script supports experiments with
-YOLO26-L and YOLO26-X using the same dataset and training settings. Each run
-trains and evaluates only one selected model.
+## Dataset
 
-## Training and evaluation
+The dataset configuration in `pets.yaml` expects `images/` and `labels/`
+directories with `train`, `val`, and `test` splits. Its classes are `shark`
+and `skate`. Update the paths in `pets.yaml` to match your local dataset
+layout. The training script also has a `TEST_IMAGES` path that specifies which
+test images to predict on; update it in `pets_training.py` if your test images
+are elsewhere.
 
-Choose the model by setting `MODEL_VARIANT` near the beginning of
-`pets_training.py` to `"l"` or `"x"`. The matching pretrained weights and
-experiment name are configured together:
+Keep the test split independent: use training and validation data to make
+model or threshold choices, and reserve test results for final evaluation. The
+dataset and trained checkpoints are not included in this repository.
 
-| Model | Pretrained weights | Experiment name |
-| --- | --- | --- |
-| YOLO26-L | `yolo26l.pt` | `pets_y26_large_<image-size>_<batch-size>` |
-| YOLO26-X | `yolo26x.pt` | `pets_y26_xlarge_<image-size>_<batch-size>` |
+## Train a model
 
-The experiment name is generated from the selected model, `IMG`, and
-`BATCH_SIZE`. With the current settings (`IMG = 640` and `BATCH_SIZE = 24`),
-the names are `pets_y26_large_640_24` and `pets_y26_xlarge_640_24`.
+1. From the workspace root, install the dependencies:
 
-The selected model is trained using `pets.yaml`. Each model uses the same
-settings and two NVIDIA GPUs (`device=[0, 1]`):
+   ```bash
+   pip install -r pets-detection/requirements.txt
+   ```
 
-| Setting | Value |
-| --- | --- |
-| Image size | 640 |
-| Epochs | 300 |
-| Batch size | 24 |
-| Early-stopping patience | 40 |
-| Confidence threshold for validation and prediction | 0.1 |
-| Random seed | 42 |
+2. Make sure the dataset paths in `pets-detection/pets.yaml` and
+   `TEST_IMAGES` in `pets-detection/pets_training.py` point to your data.
 
-Vertical and horizontal flips and dropout are disabled. The model is validated
-on the train, validation, and test splits. The script then predicts on the test
-images, saves prediction outputs, and prints the mAP50 for each split. Run the
-script again with the other `MODEL_VARIANT` value to perform the other
-experiment.
+3. In `pets_training.py`, set `MODEL_VARIANT` to `"l"` for YOLO26-L or `"x"`
+   for YOLO26-X. The script uses the matching pretrained weights
+   (`yolo26l.pt` or `yolo26x.pt`). Adjust `IMG`, `EPOCHS`, `BATCH_SIZE`, or
+   other training constants in the same file if needed.
 
-### Run the script
+4. Run training from the `pets-detection` directory so `pets.yaml` is found:
 
-From the parent workspace directory, install dependencies and make sure the
-pretrained `yolo26l.pt` and `yolo26x.pt` weights and the dataset are available:
+   ```bash
+   cd pets-detection
+   python pets_training.py
+   ```
 
-```bash
-pip install -r pets-detection/requirements.txt
-```
+The current configuration trains for up to 300 epochs with early-stopping
+patience 40, image size 640, batch size 24, and GPUs 0 and 1. It validates on
+the train, validation, and test splits, predicts on the test images, and prints
+mAP50 for each split. The run name is based on the selected model, image size,
+and batch size (for example, `pets_y26_xlarge_640_24`). Ultralytics determines
+the exact output location from its `runs/detect` project setting and the
+current working directory; check the training log for the saved run path.
 
-The script uses the independent test image directory at
-`/home/politikos/datasets/pets_create_train_val_test_set/images/test`. Update
-`TEST_IMAGES` in `pets_training.py` if the dataset is stored elsewhere.
+## Run inference and evaluation
 
-Run it from the `pets-detection` directory so `pets.yaml` is found:
+### Evaluate configured training runs
 
-```bash
-cd pets-detection
-python pets_training.py
-```
+`pets_inference.py` evaluates the experiments listed in its `EXPERIMENTS`
+configuration. Before running it, make sure each configured run exists under
+the `runs/detect/` directory the script will use and that its image size
+matches the run's `args.yaml`. It checks `../runs/detect/` first when that
+directory exists; otherwise it uses `pets-detection/runs/detect/`. The
+default experiment names in `pets_inference.py` use a `new_pets_...` prefix,
+whereas `pets_training.py` creates names beginning with `pets_y26_`; update
+`EXPERIMENTS` to match the runs you trained.
 
-The script requests GPUs 0 and 1 for training. Although it reports whether CUDA
-is available, its training configuration does not automatically switch to CPU
-or a single GPU.
-
-## Dataset and classes
-
-The dataset configuration is `pets.yaml`. It uses separate `train`, `val`, and
-`test` directories under `../../datasets/pets_create_train_val_test_set`; the
-validation set has 59 images and the independent test set has 31. Keep these
-splits separate when selecting settings and reporting final test results. Its
-classes are:
-
-- `shark`
-- `skate`
-
-Update the dataset paths in `pets.yaml` to match your local dataset layout.
-The dataset and trained checkpoints are not included in this repository.
-
-## Inference and evaluation
-
-`pets_inference.py` evaluates the configured YOLO26 runs. It reads each run's
-training image size from `args.yaml`, chooses a shared confidence threshold by
-maximizing mean per-class F1 across pooled train and validation predictions,
-then applies that threshold to train, validation, and test. The test split is
-not used to select the threshold. Run it from this directory:
+From the `pets-detection` directory, run:
 
 ```bash
 python pets_inference.py
 ```
 
-The script expects trained checkpoints in the parent workspace's
-`../runs/detect/` directory. It writes `pets_inference_metrics.csv`,
-`pets_inference.log`, and detailed inference artifacts under this folder's
+For each run, the script chooses a shared confidence threshold by maximizing
+mean per-class F1 across pooled train and validation predictions, then
+evaluates train, validation, and test with that threshold. The test split is
+not used to select it. The script writes `pets_inference_metrics.csv`,
+`pets_inference.log`, and additional inference artifacts under
 `runs/pets_inference/`.
 
-For the selected YOLO26l-960-16 experiment, run the focused evaluation:
+### Run the focused YOLO26-L 960px evaluation
+
+`pets_y26l_960_optimal_inference.py` expects the trained checkpoint at
+`runs/detect/new_pets_y26_large_960_16/weights/best.pt` and the dataset at
+`../../datasets/pets_create_train_val_test_set` relative to this script. Make
+sure these paths exist before running:
 
 ```bash
 python pets_y26l_960_optimal_inference.py
 ```
 
-This evaluates train, validation, and test at 960px with one shared
-train+validation-selected confidence threshold. It saves confidence curves,
+This evaluates train, validation, and test at 960px using a shared confidence
+threshold selected from train and validation. It saves confidence and
 precision-recall curves, confusion matrices, prediction labels, class counts,
 and a validation-versus-test metrics plot under
-`runs/pets_inference/YOLO26l-960-16_optimal/`.
+`runs/pets_inference/YOLO26l-960-16_optimal/`. It also writes
+`per_image_count_errors.csv` and `per_image_count_error_histogram.png`. The
+histogram shows shark and skate count errors per image, where count error is
+Ground Truth minus Predicted: positive values indicate undercounting and
+negative values indicate overcounting. Annotations show mean absolute error.
 
-Both scripts use YOLO26's native end-to-end inference path without adding a
-separate NMS postprocessing step.
+Both inference scripts use YOLO26's native end-to-end inference path without
+adding a separate non-maximum suppression (NMS) postprocessing step.
 
 ## Explainability
 
 The `lrp/` directory contains Layer-wise Relevance Propagation helpers, and
 `pets_explainability.py` is the explainability entry point.
-
-## Project files
-
-```text
-pets-detection/
-├── pets.yaml
-├── pets_training.py       # Selectable YOLO26-L or YOLO26-X experiment
-├── pets_inference.py      # Evaluate saved runs and select thresholds
-├── pets_y26l_960_optimal_inference.py # Focused YOLO26l-960-16 evaluation
-├── pets_explainability.py
-├── lrp/
-├── sample_images/
-└── requirements.txt
-../pets_code.py            # Same YOLO26 workflow in the parent workspace
-```
